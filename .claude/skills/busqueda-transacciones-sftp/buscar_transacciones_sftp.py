@@ -344,6 +344,23 @@ def walk_remote(sftp, base_path, max_depth=3):
     return out
 
 
+def long_path(p):
+    """En Windows, antepone el prefijo \\\\?\\ para saltar el limite clasico
+    de MAX_PATH (260 caracteres). La topologia remota real puede anidar
+    carpetas "espejo" con el mismo nombre que el archivo (ej. servidores que
+    duplican el log del dia dentro de una subcarpeta homonima), lo que empuja
+    la ruta local de cache justo al borde o mas alla de ese limite y provoca
+    FileNotFoundError al escribir, aunque el directorio si se haya creado."""
+    if os.name != "nt":
+        return p
+    p = os.path.abspath(p)
+    if p.startswith("\\\\?\\"):
+        return p
+    if p.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + p[2:]
+    return "\\\\?\\" + p
+
+
 def download_candidates(client, candidates, cache_dir, small_workers=5, large_workers=2, large_threshold_mb=300):
     """Descarga a cache_dir en paralelo (si no esta ya cacheado con el mismo
     tamano) y devuelve [(remote_path, local_path), ...]. Concurrencia
@@ -374,7 +391,7 @@ def download_candidates(client, candidates, cache_dir, small_workers=5, large_wo
 
     def worker(remote_path, attr):
         rel = remote_path.lstrip("/")
-        local_path = os.path.join(cache_dir, rel.replace("/", os.sep))
+        local_path = long_path(os.path.join(cache_dir, rel.replace("/", os.sep)))
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         sftp = sftp_pool.get()
         try:
