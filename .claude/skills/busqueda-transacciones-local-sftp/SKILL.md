@@ -366,6 +366,7 @@ Parametros principales:
 - `--guardar-credenciales` : tras conectar, guarda host/usuario/password (cifrada) en `--credenciales`. Solo modo SFTP.
 - `--olvidar-credenciales` : borra `--credenciales` antes de continuar. Solo modo SFTP.
 - `--cache-dir` : carpeta local de cache de descargas (default `.cache` dentro de la skill; se **reutiliza** entre corridas para no re-descargar). Solo modo SFTP.
+- `--cache-max-days` : borra automaticamente de `--cache-dir` los archivos con mas de N dias de antiguedad, antes de cada corrida (default **15**; usa `0` para desactivar). Evita que la cache (evidencia real, nunca se sube a git) crezca sin limite en disco. Solo modo SFTP.
 - `--limpiar-cache` : borra la cache local antes de empezar (fuerza re-descarga completa). Solo modo SFTP.
 - `--max-depth` : profundidad de recorrido recursivo remoto (default 3). Solo modo SFTP.
 - `--paralelo-livianos` : descargas simultaneas para archivos livianos (default 5). Solo modo SFTP.

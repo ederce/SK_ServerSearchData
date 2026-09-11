@@ -124,6 +124,9 @@ Parametros principales:
   guardadas de esa skill).
 - `--cache-dir` : cache de descargas propia de esta skill (default `.cache`
   dentro de esta carpeta; no comparte cache con la skill hermana).
+- `--cache-max-days` : borra automaticamente de `--cache-dir` los archivos
+  con mas de N dias de antiguedad, antes de cada corrida (default **15**;
+  usa `0` para desactivar). Reusa `cleanup_old_cache()` de la skill hermana.
 - `--paralelo-livianos` / `--paralelo-pesados` / `--umbral-pesado-mb` :
   mismos defaults que la skill hermana (5/2/300).
 - `--output-xlsx` / `--output-html` : nombre de salida (default

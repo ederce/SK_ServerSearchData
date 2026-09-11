@@ -380,6 +380,9 @@ def main():
 
     ap.add_argument("--cache-dir", default=os.path.join(SCRIPT_DIR, ".cache"),
                      help="Carpeta local de cache de descargas (propia de esta skill, se reutiliza entre corridas).")
+    ap.add_argument("--cache-max-days", type=int, default=15,
+                     help="Borra automaticamente de --cache-dir los archivos con mas de N dias de antiguedad, "
+                          "antes de cada corrida (default 15; usa 0 para desactivar esta limpieza automatica).")
     ap.add_argument("--paralelo-livianos", type=int, default=5)
     ap.add_argument("--paralelo-pesados", type=int, default=2)
     ap.add_argument("--umbral-pesado-mb", type=int, default=300)
@@ -394,6 +397,10 @@ def main():
     reports_dir = os.path.join(SCRIPT_DIR, "_reports", args.fecha)
     os.makedirs(reports_dir, exist_ok=True)
     os.makedirs(args.cache_dir, exist_ok=True)
+    removed, freed = sftp_lib.cleanup_old_cache(args.cache_dir, args.cache_max_days)
+    if removed:
+        print(f"Cache: borrados {removed} archivo(s) con mas de {args.cache_max_days} dias "
+              f"({freed / (1024 * 1024):.1f} MB liberados).")
     xlsx_path = os.path.join(reports_dir, args.output_xlsx or f"Monitoreo_IPN_Publico_{args.fecha}.xlsx")
     html_path = os.path.join(reports_dir, args.output_html or f"Monitoreo_IPN_Publico_{args.fecha}.html")
 

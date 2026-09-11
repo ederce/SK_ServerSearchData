@@ -32,7 +32,7 @@ Requisitos: Python 3.8+, paramiko, openpyxl, y el SDK/runtime de .NET 10
 (para el wrapper de cifrado, solo si se usa --guardar-credenciales)
     pip install paramiko openpyxl
 """
-import argparse, fnmatch, getpass, glob, gzip, io, json, os, queue, re, secrets, subprocess, sys, threading, stat as statmod
+import argparse, fnmatch, getpass, glob, gzip, io, json, os, queue, re, secrets, subprocess, sys, threading, time, stat as statmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
@@ -383,6 +383,40 @@ def long_path(p):
     if p.startswith("\\\\"):
         return "\\\\?\\UNC\\" + p[2:]
     return "\\\\?\\" + p
+
+
+def cleanup_old_cache(cache_dir, max_days):
+    """Borra archivos de cache_dir con mas de max_days de antiguedad (segun
+    mtime), y las subcarpetas que queden vacias despues. La cache local
+    contiene evidencia real de transacciones/comercios (nunca se sube a un
+    repositorio, ver .gitignore) y no tiene limite propio: sin este chequeo
+    crece sin fin en disco. max_days<=0 desactiva la limpieza. Devuelve
+    (archivos_borrados, bytes_liberados)."""
+    if not max_days or max_days <= 0 or not os.path.isdir(cache_dir):
+        return 0, 0
+    cutoff = time.time() - max_days * 86400
+    removed, freed = 0, 0
+    for root, _dirs, files in os.walk(cache_dir, topdown=False):
+        for name in files:
+            path = os.path.join(root, name)
+            try:
+                st = os.stat(long_path(path))
+            except OSError:
+                continue
+            if st.st_mtime < cutoff:
+                try:
+                    os.remove(long_path(path))
+                    removed += 1
+                    freed += st.st_size
+                except OSError:
+                    pass
+        if root != cache_dir:
+            try:
+                if not os.listdir(root):
+                    os.rmdir(root)
+            except OSError:
+                pass
+    return removed, freed
 
 
 def download_candidates(client, candidates, cache_dir, small_workers=5, large_workers=2, large_threshold_mb=300):
@@ -1133,6 +1167,9 @@ def main():
     ap.add_argument("--cache-dir", default=os.path.join(SCRIPT_DIR, ".cache"), help="Carpeta local para los logs descargados (se reutiliza entre corridas).")
     ap.add_argument("--keep-cache", action="store_true", help="No hace nada especial: la cache SIEMPRE se conserva para reutilizarla; usa --limpiar-cache para borrarla.")
     ap.add_argument("--limpiar-cache", action="store_true", help="Borra la cache local ANTES de descargar (fuerza re-descarga completa).")
+    ap.add_argument("--cache-max-days", type=int, default=15,
+                     help="Borra automaticamente de --cache-dir los archivos con mas de N dias de antiguedad, "
+                          "antes de cada corrida (default 15; usa 0 para desactivar esta limpieza automatica).")
     ap.add_argument("--max-depth", type=int, default=3, help="Profundidad maxima al recorrer subcarpetas remotas (default 3).")
     ap.add_argument("--paralelo-livianos", type=int, default=5,
                      help="Descargas simultaneas para archivos livianos, por debajo de --umbral-pesado-mb (default 5).")
@@ -1223,6 +1260,11 @@ def main():
             shutil.rmtree(args.cache_dir)
             print(f"      Cache local borrada: {args.cache_dir}")
         os.makedirs(args.cache_dir, exist_ok=True)
+
+        removed, freed = cleanup_old_cache(args.cache_dir, args.cache_max_days)
+        if removed:
+            print(f"      Cache: borrados {removed} archivo(s) con mas de {args.cache_max_days} dias "
+                  f"({freed / (1024 * 1024):.1f} MB liberados).")
 
         if args.olvidar_credenciales and os.path.exists(args.credenciales):
             os.remove(args.credenciales)
