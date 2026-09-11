@@ -198,15 +198,31 @@ def date_in_range(fname, fecha, fecha_desde, fecha_hasta):
     return True
 
 
+RE_FULL_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+
+
+def is_full_datetime(s):
+    """True si el string es 'YYYY-MM-DD HH:MM' (rango horario que cruza
+    medianoche) en vez de solo 'HH:MM' (rango dentro de un mismo dia)."""
+    return bool(s) and bool(RE_FULL_DATETIME.match(s))
+
+
 def time_in_range(ts, hora_desde, hora_hasta):
-    """True si la hora (HH:MM) del timestamp de la linea cae dentro del rango
-    horario obligatorio dado. ts tiene formato 'YYYY-MM-DD HH:MM:SS.fff'."""
+    """True si el timestamp de la linea cae dentro del rango horario
+    obligatorio dado. ts tiene formato 'YYYY-MM-DD HH:MM:SS.fff'.
+
+    Si hora_desde/hora_hasta vienen en formato 'HH:MM', compara solo la hora
+    del dia (mismo rango aplicado a cada dia del filtro de fecha). Si vienen
+    en formato completo 'YYYY-MM-DD HH:MM', compara fecha+hora juntas, lo que
+    permite un rango continuo que cruce medianoche (ej. 19:00 de un dia hasta
+    08:00 del dia siguiente) sin traer horas de fuera de ese rango."""
     if not (hora_desde or hora_hasta):
         return True
-    hhmm = ts[11:16]
-    if hora_desde and hhmm < hora_desde:
+    full = is_full_datetime(hora_desde) or is_full_datetime(hora_hasta)
+    key = ts[:16] if full else ts[11:16]
+    if hora_desde and key < hora_desde:
         return False
-    if hora_hasta and hhmm > hora_hasta:
+    if hora_hasta and key > hora_hasta:
         return False
     return True
 
@@ -856,97 +872,131 @@ def status_chip(estado):
 REPORT_CSS = """
 :root { color-scheme: light; }
 .report {
-  --surface-1: #fcfcfb; --page-plane: #f9f9f7;
-  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #898781;
-  --gridline: #e1e0d9; --baseline: #c3c2b7; --border: rgba(11,11,11,0.10);
-  --accent: #2a78d6;
-  --status-good: #0ca30c; --status-warning: #fab219; --status-serious: #ec835a; --status-critical: #d03b3b; --status-error: #8f1224;
+  --paper: #ffffff; --page: #f7f5f2;
+  --ink: #201a1a; --ink-soft: #56504f; --ink-mute: #948c8b;
+  --line: #ece6e2; --line-soft: #f4f0ed; --border: rgba(32,26,26,0.10);
+  --brand: #A6342E; --brand-text: #A6342E; --brand-ink: #ffffff; --brand-soft: #f7e6e4; --brand-2: #3DD2CE;
+  --accent: #A6342E;
+  --status-good: #17845a; --status-good-soft: #e2f5ec;
+  --status-warning: #a8710a; --status-warning-soft: #faedd2;
+  --status-serious: #b3541e; --status-serious-soft: #fbe3d4;
+  --status-critical: #b3261e; --status-critical-soft: #fbe7e5;
+  --status-error: #7a1015; --status-error-soft: #f6dcdc;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .report {
     color-scheme: dark;
-    --surface-1: #1a1a19; --page-plane: #0d0d0d;
-    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
-    --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
-    --accent: #3987e5;
+    --paper: #241c1c; --page: #191313;
+    --ink: #f7f2f1; --ink-soft: #d1c6c5; --ink-mute: #948c8b;
+    --line: #3d3231; --line-soft: #2c2423; --border: rgba(255,255,255,0.10);
+    --brand: #e0827c; --brand-text: #e0827c; --brand-ink: #191313; --brand-soft: #3a2322; --brand-2: #6be3e0;
+    --accent: #e0827c;
+    --status-good: #55c894; --status-good-soft: #17301f;
+    --status-warning: #e0b357; --status-warning-soft: #362a11;
+    --status-serious: #e58a54; --status-serious-soft: #3a2314;
+    --status-critical: #ef7b70; --status-critical-soft: #3a1d1a;
+    --status-error: #ff8c8c; --status-error-soft: #3a1414;
   }
 }
 :root[data-theme="dark"] .report {
   color-scheme: dark;
-  --surface-1: #1a1a19; --page-plane: #0d0d0d;
-  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
-  --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
-  --accent: #3987e5;
+  --paper: #241c1c; --page: #191313;
+  --ink: #f7f2f1; --ink-soft: #d1c6c5; --ink-mute: #948c8b;
+  --line: #3d3231; --line-soft: #2c2423; --border: rgba(255,255,255,0.10);
+  --brand: #ff6b69; --brand-text: #ff9d9b; --brand-ink: #191313; --brand-soft: #3a2322; --brand-2: #6be3e0;
+  --accent: #ff9d9b;
+  --status-good: #55c894; --status-good-soft: #17301f;
+  --status-warning: #e0b357; --status-warning-soft: #362a11;
+  --status-serious: #e58a54; --status-serious-soft: #3a2314;
+  --status-critical: #ef7b70; --status-critical-soft: #3a1d1a;
+  --status-error: #ff8c8c; --status-error-soft: #3a1414;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page-plane); color: var(--text-primary);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-.topbar { position: sticky; top: 0; z-index: 20; background: var(--surface-1);
-  border-bottom: 1px solid var(--border); padding: 14px 22px;
-  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
-.topbar h1 { font-size: 17px; margin: 0; }
-.topbar .subtitle { color: var(--text-secondary); font-size: 12.5px; margin-top: 2px; }
-.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.controls input[type=search] { padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border);
-  background: var(--page-plane); color: var(--text-primary); font-size: 13px; min-width: 280px; }
-.txn[data-worst="none"] { border-left-color: var(--baseline); }
-.chip-none { --chip-c: var(--text-muted); } .chip-none svg { color: var(--text-muted); }
-.btn { padding: 7px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--page-plane);
-  color: var(--text-primary); font-size: 13px; cursor: pointer; }
-.btn:hover { border-color: var(--accent); }
-main { max-width: 1180px; margin: 0 auto; padding: 20px 22px 60px; }
-h2 { font-size: 15px; margin: 28px 0 10px; color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: .04em; }
-.empty { background: var(--surface-1); border: 1px dashed var(--border); border-radius: 10px;
-  padding: 30px; text-align: center; color: var(--text-secondary); }
-.txn { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
-  margin-bottom: 14px; overflow: hidden; border-left: 4px solid var(--status-good); }
-.txn[data-worst="warning"] { border-left-color: var(--status-warning); }
-.txn[data-worst="serious"] { border-left-color: var(--status-serious); }
-.txn[data-worst="critical"] { border-left-color: var(--status-critical); }
-.txn[data-worst="error"] { border-left-color: var(--status-error); }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
+.brandbar { background: var(--brand); color: var(--brand-ink); position: sticky; top: 0; z-index: 20; }
+.brandbar .inner { max-width: 1180px; margin: 0 auto; padding: 14px 22px; display: flex;
+  align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.wordmark { font-size: 22px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+.wordmark .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--brand-2); display: inline-block; }
+.brandbar .tag { font-size: 12px; opacity: .85; }
+.controls-row { background: var(--paper); border-bottom: 1px solid var(--border); position: sticky; top: 53px; z-index: 19; }
+.controls { max-width: 1180px; margin: 0 auto; padding: 10px 22px; display: flex; flex-wrap: wrap;
+  gap: 10px; align-items: center; justify-content: flex-end; }
+.controls input[type=search] { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--page); color: var(--ink); font-size: 13px; min-width: 260px; }
+.btn { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--page);
+  color: var(--ink); font-size: 12.5px; cursor: pointer; }
+.btn:hover { border-color: var(--brand); }
+main { max-width: 1180px; margin: 0 auto; padding: 22px 22px 60px; }
+.hero { padding: 4px 0 6px; }
+.hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--brand-text); margin-bottom: 8px; }
+.hero h1 { font-size: 21px; margin: 0 0 8px; font-weight: 800; line-height: 1.35; }
+.hero .dek { font-size: 13.5px; color: var(--ink-soft); }
+.meta-row { font-size: 12px; color: var(--ink-mute); margin-top: 10px; display: flex; gap: 16px; flex-wrap: wrap; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 22px 0 6px; }
+.stat { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  border-top: 3px solid var(--stat-c, var(--brand)); }
+.stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-mute);
+  margin-bottom: 6px; font-weight: 700; }
+.stat .value { font-size: 22px; font-weight: 800; color: var(--stat-c, var(--brand)); }
+h2.sec { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--brand-text); font-weight: 800;
+  margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+.empty { background: var(--paper); border: 1px dashed var(--line); border-radius: 12px;
+  padding: 26px; text-align: center; color: var(--ink-soft); }
+.txn { background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+  margin-bottom: 12px; overflow: hidden; box-shadow: inset 4px 0 0 var(--status-good); }
+.txn[data-worst="warning"] { box-shadow: inset 4px 0 0 var(--status-warning); }
+.txn[data-worst="serious"] { box-shadow: inset 4px 0 0 var(--status-serious); }
+.txn[data-worst="critical"] { box-shadow: inset 4px 0 0 var(--status-critical); }
+.txn[data-worst="error"] { box-shadow: inset 4px 0 0 var(--status-error); }
+.txn[data-worst="none"] { box-shadow: inset 4px 0 0 var(--ink-mute); }
 .txn > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex;
-  align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; }
+  align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 700; }
 .txn > summary::-webkit-details-marker { display: none; }
-.txn > summary::before { content: "\\25B8"; display: inline-block; color: var(--text-muted);
+.txn > summary::before { content: "\\25B8"; display: inline-block; color: var(--ink-mute);
   transition: transform .15s; font-weight: 400; }
 .txn[open] > summary::before { transform: rotate(90deg); }
-.txn-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; font-weight: 400; color: var(--text-secondary); }
-.txn-meta { padding: 0 16px 14px; display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--text-secondary); font-size: 12.5px; }
-.txn-meta b { color: var(--text-primary); font-weight: 600; }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 700; background: color-mix(in srgb, var(--chip-c) 15%, transparent); }
-.chip-good { --chip-c: var(--status-good); } .chip-good svg { color: var(--status-good); }
-.chip-warning { --chip-c: var(--status-warning); } .chip-warning svg { color: var(--status-warning); }
-.chip-serious { --chip-c: var(--status-serious); } .chip-serious svg { color: var(--status-serious); }
-.chip-critical { --chip-c: var(--status-critical); } .chip-critical svg { color: var(--status-critical); }
-.chip-error { --chip-c: var(--status-error); } .chip-error svg { color: var(--status-error); }
+.txn-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; font-weight: 400; color: var(--ink-soft); }
+.txn-meta { padding: 0 16px 14px; display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--ink-soft); font-size: 12.5px; }
+.txn-meta b { color: var(--ink); font-weight: 700; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: .02em;
+  text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }
+.chip-good { background: var(--status-good-soft); color: var(--status-good); }
+.chip-warning { background: var(--status-warning-soft); color: var(--status-warning); }
+.chip-serious { background: var(--status-serious-soft); color: var(--status-serious); }
+.chip-critical { background: var(--status-critical-soft); color: var(--status-critical); }
+.chip-error { background: var(--status-error-soft); color: var(--status-error); }
+.chip-none { background: var(--line-soft); color: var(--ink-mute); }
 .timeline { list-style: none; margin: 0; padding: 4px 16px 16px; }
-.step { position: relative; padding: 8px 0 8px 22px; border-left: 2px solid var(--gridline); margin-left: 4px; }
+.step { position: relative; padding: 8px 0 8px 22px; border-left: 2px solid var(--line); margin-left: 4px; }
 .step:last-child { border-left-color: transparent; }
 .step::before { content: ""; position: absolute; left: -6px; top: 12px; width: 10px; height: 10px;
-  border-radius: 50%; background: var(--chip-c, var(--baseline)); }
+  border-radius: 50%; background: var(--chip-c, var(--ink-mute)); }
 .step-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.step-evento { font-weight: 600; }
-.step-hora { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.step-resultado { color: var(--text-secondary); font-size: 12.5px; margin-top: 3px; }
-.step-evidencia { color: var(--text-muted); font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 2px; }
+.step-evento { font-weight: 700; }
+.step-hora { color: var(--ink-mute); font-size: 12px; font-variant-numeric: tabular-nums; }
+.step-resultado { color: var(--ink-soft); font-size: 12.5px; margin-top: 3px; }
+.step-evidencia { color: var(--ink-mute); font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 2px; }
 .table-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-.table-toolbar .count { color: var(--text-muted); font-size: 12.5px; }
-.table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 560px; }
-.idx-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.table-toolbar .count { color: var(--ink-mute); font-size: 12.5px; }
+.table-wrap { border: 1px solid var(--line); border-radius: 12px; overflow: auto; max-height: 560px; }
+.idx-link { color: var(--brand-text); font-weight: 700; text-decoration: none; }
 .idx-link:hover { text-decoration: underline; }
 table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-thead th { position: sticky; top: 0; background: var(--surface-1); color: var(--text-secondary);
-  text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; }
-thead th:hover { color: var(--text-primary); }
-thead th.sorted::after { content: " \\2195"; color: var(--accent); }
-tbody td { padding: 7px 10px; border-bottom: 1px solid var(--gridline); vertical-align: top; }
-tbody tr:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+thead th { position: sticky; top: 0; background: var(--brand-soft); color: var(--brand-text);
+  text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; font-weight: 700; }
+thead th:hover { color: var(--ink); }
+thead th.sorted::after { content: " \\2195"; color: var(--brand-text); }
+tbody td { padding: 7px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+tbody tr:hover { background: var(--brand-soft); }
 td.mono, .txn-id, .step-evidencia { font-variant-numeric: tabular-nums; }
 td.detalle-txt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
 .hidden-row { display: none !important; }
-footer { text-align: center; color: var(--text-muted); font-size: 11.5px; padding: 20px; }
+footer { text-align: center; color: var(--ink-mute); font-size: 11.5px; padding: 26px 0 6px;
+  border-top: 1px solid var(--line); margin-top: 36px; }
+@media print { .controls-row, .brandbar { display: none; } body { background: #fff; } }
 """
 
 REPORT_JS = """
@@ -1016,25 +1066,30 @@ REPORT_JS = """
 
 
 def build_html(results, out_path, groups_desc, files_scanned, conn_desc):
+    generado = datetime.now().strftime("%d-%m-%Y %H:%M")
     parts = [f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Busqueda de Transaccion(es) via SFTP</title>
 <style>{REPORT_CSS}</style>
 </head><body class="report">
-<header class="topbar">
-  <div>
-    <h1>Busqueda de Transaccion(es) via SFTP</h1>
-    <div class="subtitle">Criterios: {esc(groups_desc)} &nbsp;|&nbsp; Archivos escaneados: {files_scanned} &nbsp;|&nbsp; {esc(conn_desc)}</div>
-  </div>
-  <div class="controls">
-    <input type="search" id="globalSearch" placeholder="Buscar comercio, orden, evento...">
-    <button class="btn" id="expandAll" type="button">Expandir todo</button>
-    <button class="btn" id="collapseAll" type="button">Contraer todo</button>
-    <button class="btn" id="toggleTheme" type="button">Modo claro/oscuro</button>
-  </div>
-</header>
+<div class="brandbar"><div class="inner">
+  <div class="wordmark"><span class="dot"></span>izipay</div>
+  <div class="tag">Reporte tecnico &middot; Ecommerce</div>
+</div></div>
+<div class="controls-row"><div class="controls">
+  <input type="search" id="globalSearch" placeholder="Buscar comercio, orden, evento...">
+  <button class="btn" id="expandAll" type="button">Expandir todo</button>
+  <button class="btn" id="collapseAll" type="button">Contraer todo</button>
+  <button class="btn" id="toggleTheme" type="button">Modo claro/oscuro</button>
+</div></div>
 <main>
+  <div class="hero">
+    <div class="kicker">Busqueda de transacciones via SFTP</div>
+    <h1>Evidencia de transaccion(es) segun criterios de busqueda</h1>
+    <p class="dek">Criterios: {esc(groups_desc)}</p>
+    <div class="meta-row"><span>Generado: {esc(generado)}</span><span>Archivos escaneados: {files_scanned}</span><span>{esc(conn_desc)}</span></div>
+  </div>
 """]
 
     if not results:
@@ -1049,11 +1104,28 @@ def build_html(results, out_path, groups_desc, files_scanned, conn_desc):
         items_with_worst = [(item, transaction_final_status(item["rows"], item["lines"])) for item in results]
 
         if len(results) > 1:
+            counts = {}
+            for _item, worst in items_with_worst:
+                counts[worst] = counts.get(worst, 0) + 1
+            parts.append('<div class="stats">')
+            parts.append(
+                '<div class="stat"><div class="label">Transacciones encontradas</div>'
+                f'<div class="value">{len(results)}</div></div>'
+            )
+            for key in ("good", "warning", "serious", "critical", "error", "none"):
+                if counts.get(key):
+                    parts.append(
+                        f'<div class="stat" style="--stat-c: var(--status-{key}, var(--ink-mute))">'
+                        f'<div class="label">{esc(KEY_LABEL_ES[key])}</div>'
+                        f'<div class="value">{counts[key]}</div></div>'
+                    )
+            parts.append('</div>')
+
             # Cuadro-indice con el resultado final de cada transaccion, ordenado
             # de peor a mejor, para identificar rapido cuales tuvieron error e
             # ir directo a su detalle (ancla #txn-<id> mas abajo).
             parts.append('<section id="indice">')
-            parts.append(f'<h2>Resultado final por transaccion ({len(results)} encontradas)</h2>')
+            parts.append(f'<h2 class="sec">Resultado final por transaccion ({len(results)} encontradas)</h2>')
             parts.append(
                 '<div class="table-wrap"><table class="index-table"><thead><tr>'
                 '<th>TransactionId</th><th>Comercio</th><th>Orden</th><th>Monto</th><th>Resultado Final</th>'
@@ -1071,6 +1143,7 @@ def build_html(results, out_path, groups_desc, files_scanned, conn_desc):
             parts.append('</tbody></table></div>')
             parts.append('</section>')
 
+        parts.append('<h2 class="sec">Detalle por transaccion</h2>')
         parts.append('<section id="resumen">')
         for item, worst in items_with_worst:
             ctx = item["ctx"]; txid = item["txid"]; rows = item["rows"]
@@ -1108,7 +1181,7 @@ def build_html(results, out_path, groups_desc, files_scanned, conn_desc):
             parts.append('</details>')
         parts.append('</section>')
 
-    parts.append('<h2>Detalle de logs (evidencia cruda)</h2>')
+    parts.append('<h2 class="sec">Detalle de logs (evidencia cruda)</h2>')
     all_rows = []
     for item in results:
         for remote_label, lineno, text in item["lines"]:
@@ -1137,7 +1210,7 @@ def build_html(results, out_path, groups_desc, files_scanned, conn_desc):
             f"<td class=\"mono\">{lineno}</td><td>{esc(level)}</td><td class=\"detalle-txt\">{esc(rest)}</td></tr>"
         )
     parts.append('</tbody></table></div>')
-    parts.append('</main><footer>Generado por busqueda-transacciones-sftp</footer>')
+    parts.append('</main><footer>Generado por busqueda-transacciones-sftp &middot; Equipo Ecommerce Izipay</footer>')
     parts.append(f"<script>{REPORT_JS}</script>")
     parts.append("</body></html>")
 
@@ -1160,8 +1233,8 @@ def main():
     ap.add_argument("--fecha", help="Filtra archivos remotos por fecha exacta embebida en el nombre (YYYY-MM-DD). OBLIGATORIO dar --fecha o --fecha-desde/--fecha-hasta.")
     ap.add_argument("--fecha-desde", help="Filtra desde esta fecha (YYYY-MM-DD), inclusive.")
     ap.add_argument("--fecha-hasta", help="Filtra hasta esta fecha (YYYY-MM-DD), inclusive.")
-    ap.add_argument("--hora-desde", help="Filtra desde esta hora (HH:MM), inclusive, sobre la hora real de cada linea. OBLIGATORIO junto con --hora-hasta.")
-    ap.add_argument("--hora-hasta", help="Filtra hasta esta hora (HH:MM), inclusive, sobre la hora real de cada linea. OBLIGATORIO junto con --hora-desde.")
+    ap.add_argument("--hora-desde", help="Filtra desde esta hora, inclusive, sobre la hora real de cada linea. Formato 'HH:MM' (se aplica cada dia dentro del rango de fecha) o 'YYYY-MM-DD HH:MM' (rango continuo que puede cruzar medianoche; en ese caso deriva --fecha-desde solo si no se dio). OBLIGATORIO junto con --hora-hasta.")
+    ap.add_argument("--hora-hasta", help="Filtra hasta esta hora, inclusive. Mismo formato que --hora-desde ('HH:MM' o 'YYYY-MM-DD HH:MM'); si es formato completo deriva --fecha-hasta solo si no se dio. OBLIGATORIO junto con --hora-desde.")
     ap.add_argument("--categoria", default="todos",
                      help="PUBLICO, CONTROLLER, BUSINESS, INTERNO "
                           "(coma-separado para varias) o 'todos' (default).")
@@ -1214,10 +1287,17 @@ def main():
         print("      [AVISO] No se dio --txid ni --orden: se hara un descubrimiento global de TODAS "
               "las transacciones del comercio que cumplan el resto de criterios (api/categoria/fecha/hora). "
               "Puede haber muchos resultados y tardar mas; agrega --txid u --orden para acotar si buscas una puntual.")
-    if not (args.fecha or args.fecha_desde or args.fecha_hasta):
-        sys.exit("Debes dar un rango de fechas: --fecha o --fecha-desde/--fecha-hasta.")
     if not (args.hora_desde and args.hora_hasta):
-        sys.exit("Debes dar un rango de horas: --hora-desde y --hora-hasta (formato HH:MM).")
+        sys.exit("Debes dar un rango de horas: --hora-desde y --hora-hasta (formato HH:MM, o 'YYYY-MM-DD HH:MM' para un rango continuo que cruce medianoche).")
+    if is_full_datetime(args.hora_desde) or is_full_datetime(args.hora_hasta):
+        if not (is_full_datetime(args.hora_desde) and is_full_datetime(args.hora_hasta)):
+            sys.exit("Si usas formato completo 'YYYY-MM-DD HH:MM' en --hora-desde/--hora-hasta, debes darlo en ambos.")
+        if not args.fecha_desde:
+            args.fecha_desde = args.hora_desde[:10]
+        if not args.fecha_hasta:
+            args.fecha_hasta = args.hora_hasta[:10]
+    if not (args.fecha or args.fecha_desde or args.fecha_hasta):
+        sys.exit("Debes dar un rango de fechas: --fecha o --fecha-desde/--fecha-hasta (o usa formato completo en --hora-desde/--hora-hasta).")
 
     args.output_xlsx = resolve_report_path(args.output_xlsx, "Busqueda_Transacciones_SFTP.xlsx")
     args.output_html = resolve_report_path(args.output_html, "Busqueda_Transacciones_SFTP.html")
