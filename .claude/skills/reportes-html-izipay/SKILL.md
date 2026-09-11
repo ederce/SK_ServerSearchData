@@ -96,14 +96,23 @@ open("reporte.html", "w", encoding="utf-8").write(html)
   `add_table()`, `add_html()` (escape hatch para markup custom) y `render()`.
 - `chip(label, key)` — badge de estado con icono, `key` en
   `good|warning|serious|critical|error|none` (mismos 5 niveles de severidad
-  que usan `trazabilidad-transacciones` y `busqueda-transacciones-sftp`:
-  good=OK/Aprobado, warning=Alerta, serious=Reversado, critical=Rechazado,
-  error=nunca notificado tras reintentos).
+  que usa `busqueda-transacciones-local-sftp`: good=OK/Aprobado,
+  warning=Alerta, serious=Reversado, critical=Rechazado, error=nunca
+  notificado tras reintentos).
 - `esc(s)` — escapa HTML (usar siempre sobre texto que no sea markup de
-  confianza antes de insertarlo en celdas/callouts).
+  confianza antes de insertarlo en celdas/callouts). **Ojo:** `kicker`/`h1`/`dek`
+  del `ReportBuilder` tambien se escapan automaticamente en `render()` -- no
+  les pases entidades HTML tipo `&middot;`/`&mdash;` (saldrian literales),
+  usa el caracter Unicode directo (`·`, `—`).
+- Clases utilitarias en `CSS` para celdas de texto largo (ej. un JSON de
+  ejemplo de error): `.ellipsis` (trunca en una linea con `...`, usar
+  `title="texto completo"` en el mismo tag para verlo al pasar el cursor) y
+  `td.nowrap` (evita que una celda con comas/espacios haga salto de linea y
+  agrande la fila). Sin esto, texto largo en `add_table()` puede inflar la
+  altura de fila.
 - `CSS` / `JS` — strings crudos, por si un reporte necesita maquetar algo muy
   particular (ej. tarjetas `.txn`/`.timeline`/`.step` tipo acordeon con
-  hitos, como hace `busqueda-transacciones-sftp`) sin pasar por
+  hitos, como hace `busqueda-transacciones-local-sftp`) sin pasar por
   `ReportBuilder`. Ver las clases ya definidas en `CSS` antes de inventar
   nuevas.
 - `timestamp_now()` — fecha/hora local formateada `DD-MM-YYYY HH:MM`, para el

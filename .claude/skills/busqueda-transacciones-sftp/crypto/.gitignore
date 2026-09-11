@@ -1,7 +1,0 @@
-# Nunca subir el archivo de credenciales (contiene la password cifrada Y la
-# key para descifrarla).
-sftp_config.json
-
-# Artefactos de build de .NET
-CryptoWrapper/bin/
-CryptoWrapper/obj/

@@ -83,20 +83,20 @@ CSS = """
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
 .brandbar { background: var(--brand); color: var(--brand-ink); position: sticky; top: 0; z-index: 20; }
-.brandbar .inner { max-width: 1120px; margin: 0 auto; padding: 14px 22px; display: flex;
+.brandbar .inner { max-width: 1180px; margin: 0 auto; padding: 14px 22px; display: flex;
   align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .wordmark { font-size: 22px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
 .wordmark .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--brand-2); display: inline-block; }
 .brandbar .tag { font-size: 12px; opacity: .85; }
-.controls-row { background: var(--paper); border-bottom: 1px solid var(--border); }
-.controls { max-width: 1120px; margin: 0 auto; padding: 10px 22px; display: flex; flex-wrap: wrap;
+.controls-row { background: var(--paper); border-bottom: 1px solid var(--border); position: sticky; top: 53px; z-index: 19; }
+.controls { max-width: 1180px; margin: 0 auto; padding: 10px 22px; display: flex; flex-wrap: wrap;
   gap: 10px; align-items: center; justify-content: flex-end; }
 .controls input[type=search] { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--page); color: var(--ink); font-size: 13px; min-width: 260px; }
 .btn { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--page);
   color: var(--ink); font-size: 12.5px; cursor: pointer; }
 .btn:hover { border-color: var(--brand); }
-main { max-width: 1120px; margin: 0 auto; padding: 22px 22px 60px; }
+main { max-width: 1180px; margin: 0 auto; padding: 22px 22px 60px; }
 .hero { padding: 6px 0 6px; }
 .hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--brand-text); margin-bottom: 8px; }
@@ -144,6 +144,9 @@ table.data th.sorted::after { content: " \\2195"; color: var(--brand-text); }
 table.data td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 table.data tbody tr:hover { background: var(--brand-soft); }
 .hidden-row { display: none !important; }
+.ellipsis { display: inline-block; max-width: 420px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; vertical-align: bottom; }
+td.nowrap { white-space: nowrap; }
 .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: .02em;
   text-transform: uppercase; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .chip-good { background: var(--status-good-soft); color: var(--status-good); }
@@ -177,6 +180,11 @@ table.data tbody tr:hover { background: var(--brand-soft); }
 .step-hora { color: var(--ink-mute); font-size: 12px; font-variant-numeric: tabular-nums; }
 .step-resultado { color: var(--ink-soft); font-size: 12.5px; margin-top: 3px; }
 .step-evidencia { color: var(--ink-mute); font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 2px; }
+.idx-link { color: var(--brand-text); font-weight: 700; text-decoration: none; }
+.idx-link:hover { text-decoration: underline; }
+.mono, .txn-id, .step-evidencia { font-variant-numeric: tabular-nums; }
+.detalle-txt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
+  white-space: pre-wrap; word-break: break-word; }
 footer { text-align: center; color: var(--ink-mute); font-size: 11.5px; padding: 26px 0 6px;
   border-top: 1px solid var(--line); margin-top: 36px; }
 @media print { .controls-row, .brandbar { display: none; } body { background: #fff; } }
