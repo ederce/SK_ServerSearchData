@@ -2,3 +2,4 @@
 # y cache local de logs descargados: no deben subirse a ningun repositorio.
 _reports/
 .cache/
+logs/
