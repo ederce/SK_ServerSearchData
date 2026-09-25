@@ -1,0 +1,14 @@
+# Reportes generados - no subir al repositorio
+_reports/
+
+# Cache local de descargas SFTP
+.cache/
+
+# Archivos de configuracion de credenciales cifradas
+crypto/sftp_config.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
