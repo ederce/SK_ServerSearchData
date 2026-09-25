@@ -157,11 +157,17 @@ def date_in_range(fname, fecha, fecha_desde, fecha_hasta):
         return False
     return True
 
+def is_full_datetime(s):
+    """True si el string es 'YYYY-MM-DD HH:MM' (rango que cruza medianoche) vs solo 'HH:MM'."""
+    return bool(s) and bool(RE_FULL_DATETIME.match(s))
+
 def time_in_range(ts, hora_desde, hora_hasta):
-    """True si timestamp cae en rango horario obligatorio."""
+    """True si timestamp cae en rango horario obligatorio.
+    Si hora_desde/hasta son 'HH:MM', compara solo hora del dia.
+    Si son 'YYYY-MM-DD HH:MM', compara fecha+hora (permite cruzar medianoche)."""
     if not (hora_desde or hora_hasta):
         return True
-    full = bool(RE_FULL_DATETIME.match(hora_desde or "")) or bool(RE_FULL_DATETIME.match(hora_hasta or ""))
+    full = is_full_datetime(hora_desde) or is_full_datetime(hora_hasta)
     key = ts[:16] if full else ts[11:16]
     if hora_desde and key < hora_desde:
         return False
@@ -456,26 +462,53 @@ def extract_merchant(msg):
     m = RE_MERCHANT.search(msg)
     return m.group(1) if m else None
 
+def extract_error_code(msg):
+    """Extrae el código de error de la línea (statuscode, code, o 'Error'/'exception')."""
+    # Intenta extraer statuscode primero
+    m_status = RE_STATUS_CODE.search(msg)
+    if m_status:
+        return f"statuscode={m_status.group(1)}"
+
+    # Intenta extraer code ISO 8583
+    m_code = RE_CODE.search(msg)
+    if m_code:
+        return f"code={m_code.group(1)}"
+
+    # Si contiene Error o exception, retorna eso
+    low = msg.lower()
+    if "exception" in low:
+        return "exception"
+    if "error" in low:
+        return "error"
+
+    return "unknown"
+
 def scan_for_errors(local_files, encoding, fecha=None, fecha_desde=None, fecha_hasta=None,
                     hora_desde=None, hora_hasta=None, comercio_filter=None):
-    """Escanea todos los logs buscando lineas con error. Retorna dict:
-    {
+    """Escanea todos los logs buscando lineas con error. Retorna tupla:
+    (errors_by_txid, last_timestamp_by_file) donde:
+    - errors_by_txid: {
         "txid1": [
-            ("server_label", lineno, "timestamp", "comercio", "linea_completa"),
+            ("server_label", lineno, "timestamp", "error_code", "linea_completa"),
             ...
         ],
         "txid2": [...],
     }
+    - last_timestamp_by_file: {"server_label1": "YYYY-MM-DD HH:MM:SS.fff", ...}
     """
     errors_by_txid = {}
+    last_timestamp_by_file = {}
 
     for remote_label, local_path in local_files:
+        max_ts = None
         with open_local(local_path, encoding) as fh:
             for lineno, line in enumerate(fh, 1):
                 # Filtro de fecha
                 m_ts = TS_RE.match(line)
                 if m_ts:
                     ts = m_ts.group(1)
+                    if max_ts is None or ts > max_ts:
+                        max_ts = ts
                     if not time_in_range(ts, hora_desde, hora_hasta):
                         continue
                 else:
@@ -499,36 +532,45 @@ def scan_for_errors(local_files, encoding, fecha=None, fecha_desde=None, fecha_h
                     if not merchant or merchant != comercio_filter:
                         continue
 
+                # Extraer código de error
+                error_code = extract_error_code(line)
+
                 if txid not in errors_by_txid:
                     errors_by_txid[txid] = []
-                errors_by_txid[txid].append((remote_label, lineno, ts, line.rstrip("\n")))
+                errors_by_txid[txid].append((remote_label, lineno, ts, error_code, line.rstrip("\n")))
 
+        if max_ts:
+            last_timestamp_by_file[remote_label] = max_ts
         print(f"  escaneado: {remote_label}")
 
-    return errors_by_txid
+    return errors_by_txid, last_timestamp_by_file
 
 # --------------------------------------------------------------------------
 # 5) Reporte basico (Excel + HTML)
 # --------------------------------------------------------------------------
-def generate_report(errors_by_txid, output_xlsx, output_html):
-    """Genera reportes en Excel y HTML (basico)."""
+def generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file=None):
+    """Genera reportes en Excel y HTML con codigo de error y ultima hora de log."""
     if not errors_by_txid:
         print("Sin errores encontrados.")
         return
+
+    if last_timestamp_by_file is None:
+        last_timestamp_by_file = {}
 
     # Excel basico
     wb = Workbook()
     ws = wb.active
     ws.title = "Errores"
 
-    headers = ["TransactionId", "Servidor", "Linea", "Timestamp", "Mensaje"]
+    headers = ["TransactionId", "Servidor", "Linea", "Timestamp", "Codigo de Error", "Ultima Hora Log", "Mensaje"]
     ws.append(headers)
 
     row_num = 2
     for txid in sorted(errors_by_txid.keys()):
-        for server, lineno, ts, line_text in errors_by_txid[txid]:
-            msg = line_text[:300] if len(line_text) > 300 else line_text
-            ws.append([txid, server, lineno, ts, msg])
+        for server, lineno, ts, error_code, line_text in errors_by_txid[txid]:
+            msg = line_text[:MAX_CELL_LEN] if len(line_text) > MAX_CELL_LEN else line_text
+            last_ts = last_timestamp_by_file.get(server, "N/A")
+            ws.append([txid, server, lineno, ts, error_code, last_ts, msg])
             row_num += 1
 
     wb.save(output_xlsx)
@@ -543,22 +585,27 @@ def generate_report(errors_by_txid, output_xlsx, output_html):
         "body { font-family: Arial, sans-serif; margin: 20px; }",
         "h1 { color: #333; }",
         "table { border-collapse: collapse; width: 100%; margin-top: 20px; }",
-        "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }",
-        "th { background-color: #f2f2f2; }",
+        "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9em; }",
+        "th { background-color: #f2f2f2; font-weight: bold; }",
         "tr:nth-child(even) { background-color: #f9f9f9; }",
-        ".timestamp { color: #666; font-size: 0.9em; }",
+        ".timestamp { color: #666; font-size: 0.85em; }",
         ".txid { font-weight: bold; color: #333; }",
+        ".error-code { color: #d9534f; font-weight: bold; }",
+        ".last-ts { color: #5cb85c; font-weight: bold; }",
         "</style></head><body>",
         f"<h1>Errores de Transacciones - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</h1>",
         f"<p>Total de TransactionIds con error: {len(errors_by_txid)}</p>",
-        "<table><tr><th>TransactionId</th><th>Servidor</th><th>Linea</th><th>Timestamp</th><th>Mensaje</th></tr>",
+        "<table><tr><th>TransactionId</th><th>Servidor</th><th>Linea</th><th>Timestamp</th><th>Codigo de Error</th><th>Ultima Hora Log</th><th>Mensaje</th></tr>",
     ]
 
     for txid in sorted(errors_by_txid.keys()):
-        for server, lineno, ts, line_text in errors_by_txid[txid]:
-            msg = esc(line_text[:300]) if len(line_text) > 300 else esc(line_text)
+        for server, lineno, ts, error_code, line_text in errors_by_txid[txid]:
+            msg = esc(line_text[:MAX_CELL_LEN]) if len(line_text) > MAX_CELL_LEN else esc(line_text)
+            last_ts = last_timestamp_by_file.get(server, "N/A")
             html_lines.append(f"<tr><td class='txid'>{esc(txid)}</td><td>{esc(server)}</td>"
-                              f"<td>{lineno}</td><td class='timestamp'>{esc(ts)}</td><td>{msg}</td></tr>")
+                              f"<td>{lineno}</td><td class='timestamp'>{esc(ts)}</td>"
+                              f"<td class='error-code'>{esc(error_code)}</td>"
+                              f"<td class='last-ts'>{esc(last_ts)}</td><td>{msg}</td></tr>")
 
     html_lines += ["</table></body></html>"]
     html_content = "\n".join(html_lines)
@@ -630,7 +677,7 @@ def main():
             files = walk_remote(sftp, remote_base, args.max_depth)
             all_files.extend(files)
 
-        candidates = [(p, a) for p, a in all_files if date_in_range(p, args.fecha, args.fecha_desde, args.fecha_hasta)]
+        candidates = [(p, a) for p, a in all_files if date_in_range(os.path.basename(p), args.fecha, args.fecha_desde, args.fecha_hasta)]
         if not candidates:
             print("\nSin archivos candidatos que descarg ar en el rango de fecha dado.")
             sftp.close()
@@ -646,7 +693,7 @@ def main():
         client.close()
 
     print("\n=== ESCANEANDO LOGS EN BUSCA DE ERRORES ===")
-    errors_by_txid = scan_for_errors(local_files, encoding,
+    errors_by_txid, last_timestamp_by_file = scan_for_errors(local_files, encoding,
                                      args.fecha, args.fecha_desde, args.fecha_hasta,
                                      args.hora_desde, args.hora_hasta, args.comercio)
 
@@ -664,9 +711,9 @@ def main():
     output_html = resolve_report_path(args.output_html, "Errores_Transacciones.html")
 
     print("\n=== GENERANDO REPORTES ===")
-    generate_report(errors_by_txid, output_xlsx, output_html)
+    generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file)
 
-    print(f"\n✓ Listo!")
+    print("\n[OK] Listo!")
 
 if __name__ == "__main__":
     main()
