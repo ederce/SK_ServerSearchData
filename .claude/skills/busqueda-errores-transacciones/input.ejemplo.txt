@@ -1,0 +1,39 @@
+# Configuracion OPCIONAL de busqueda de errores (input.txt).
+# La mayoria de parametros se dan por flags CLI en vez de por este archivo.
+#
+# A diferencia de busqueda-transacciones-local-sftp, aqui:
+# - Fecha es OBLIGATORIA (siempre hay que dar --fecha o --fecha-desde/hasta)
+# - Comercio es OPCIONAL (si se omite, muestra errores de TODOS los comercios)
+#
+# Criterios de error (se detectan automaticamente en los logs):
+# - status code != 200
+# - code != "00" y != "RA2"
+# - mensaje contiene "Error" o "exception"
+
+# --- Ejemplo 1: buscar errores de HOY en TODOS los comercios, ultimas 3 horas ---
+# (Usar flags CLI, no este archivo)
+# python buscar_errores_transacciones.py --fecha 2026-09-25 --ultimas-3-horas
+
+# --- Ejemplo 2: buscar errores de un comercio especifico en un rango de horas ---
+# (Usar flags CLI, no este archivo)
+# python buscar_errores_transacciones.py \
+#   --fecha 2026-09-25 \
+#   --comercio 4080783 \
+#   --hora-desde 14:00 --hora-hasta 15:30
+
+# --- Ejemplo 3: buscar errores de un rango de fechas (sin acotar hora) ---
+# (Usar flags CLI, no este archivo)
+# python buscar_errores_transacciones.py \
+#   --fecha-desde 2026-09-24 --fecha-hasta 2026-09-25
+
+# --- Ejemplo 4: modo local, logs ya descargados ---
+# (Usar flags CLI + --logs-dir, no este archivo)
+# python buscar_errores_transacciones.py \
+#   --logs-dir "C:\ruta\a\logs" \
+#   --fecha 2026-09-25 \
+#   --comercio 4080783
+
+# --- Parametros que SI se pueden poner aqui (OPCIONALES) ---
+# comercio: 4080783
+# fecha: 2026-09-25
+# (o bien, usar los flags CLI equivalentes)
