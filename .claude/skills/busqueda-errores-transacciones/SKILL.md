@@ -2,21 +2,13 @@
 name: busqueda-errores-transacciones
 description: >-
   Busca transacciones que hayan resultado en error segun los logs NLog de la
-  plataforma ecommerce, en DOS modos de origen de datos: (A) MODO SFTP -- se
-  conecta ella misma a un servidor REMOTO por SFTP, descarga solo los logs
-  necesarios a una cache local reutilizable; (B) MODO LOCAL (--logs-dir) --
-  analiza directo una carpeta con logs YA DESCARGADOS, sin conectar a ningun
-  servidor ni pedir credenciales. Ambos modos comparten el mismo motor de
-  busqueda/clasificacion/reporte. Criterios de error: status code distinto a 200
-  O code distinto a "00" y "RA2" O mensaje contiene "Error" o "exception".
-  Pide las credenciales SFTP de forma interactiva por defecto (igual que el
-  skill de busqueda de transacciones), con opcion de guardarlas cifradas
-  AES-256-GCM. Requiere una fecha (dia especifico o rango). Comercio es
-  OPCIONAL: si se da, filtra errores de ese comercio; si no se da, muestra
-  errores de TODOS los comercios. Rango horario es OPCIONAL: puede ser
-  --hora-desde/--hora-hasta para un intervalo especifico, o --ultimas-N-horas
-  para las N horas previas a ahora. Entrega reporte en Excel (.xlsx, hoja
-  Resumen + Detalle_Logs) y HTML autocontenido, con el mismo contenido.
+  plataforma ecommerce. CASO MAS COMUN: 1 dia especifico + rango de horas
+  especifico (ej. hoy 14:00-15:30). DOS modos de origen: (A) SFTP remoto --
+  descarga logs necesarios a cache local reutilizable; (B) local --logs-dir
+  -- analiza carpeta con logs ya descargados. Criterios de error: statuscode
+  != 200 O code != "00"/"RA2" O Error/exception. Fecha obligatoria. Comercio
+  OPCIONAL. Rango horario OPCIONAL: --hora-desde/hasta O --ultimas-N-horas.
+  Reportes Excel + HTML. Credenciales SFTP cifradas AES-256-GCM (opcional).
 ---
 
 # Busqueda de errores en transacciones (SFTP o logs ya locales)
@@ -89,11 +81,11 @@ para detalles de seguridad y configuracion.
 ## Insumos
 
 1. **Fecha — OBLIGATORIO** (a diferencia de busqueda de transacciones, donde
-   es opcional):
-   - `--fecha 2026-09-25` (un dia exacto), o
-   - `--fecha-desde 2026-09-24 --fecha-hasta 2026-09-25` (rango).
+   es opcional). **La mayoria de los casos consulta un DIA ESPECIFICO:**
+   - `--fecha 2026-09-25` (un dia exacto) — **caso mas comun**
+   - `--fecha-desde 2026-09-24 --fecha-hasta 2026-09-25` (rango de fechas).
    
-   Siempre da una fecha -- si queres los ultimos N dias, suma `--fecha-desde`.
+   Siempre da una fecha. Si necesitas multiples dias, usa `--fecha-desde/hasta`.
 
 2. **Rango de horas — OPCIONAL**. DOS formatos a elegir:
    - `--hora-desde 14:00 --hora-hasta 15:30` (rango dentro del/los dia(s),
@@ -118,21 +110,31 @@ para detalles de seguridad y configuracion.
 
 ## Como ejecutar
 
-**Modo SFTP, ultimas 3 horas de hoy, todos los comercios:**
+**CASO MAS COMUN: 1 dia especifico + rango de horas especifico:**
 
 ```bash
 python "<ruta-skill>/buscar_errores_transacciones.py" \
-  --fecha 2026-09-25 --ultimas-3-horas \
+  --fecha 2026-09-25 \
+  --hora-desde 14:00 --hora-hasta 15:30 \
+  --comercio 4080783 \
   --output-xlsx Errores.xlsx --output-html Errores.html
 ```
 
-**Modo SFTP, rango de fecha/hora especifico, comercio particular:**
+**Mismo dia, ultimas N horas desde ahora:**
+
+```bash
+python "<ruta-skill>/buscar_errores_transacciones.py" \
+  --fecha 2026-09-25 \
+  --ultimas-N-horas 3 \
+  --output-xlsx Errores.xlsx --output-html Errores.html
+```
+
+**Rango de fechas (multiple dias) con rango de horas:**
 
 ```bash
 python "<ruta-skill>/buscar_errores_transacciones.py" \
   --fecha-desde 2026-09-24 --fecha-hasta 2026-09-25 \
   --hora-desde 09:00 --hora-hasta 14:30 \
-  --comercio 4080783 \
   --output-xlsx Errores.xlsx --output-html Errores.html
 ```
 

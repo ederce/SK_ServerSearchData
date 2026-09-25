@@ -4,33 +4,35 @@
 # A diferencia de busqueda-transacciones-local-sftp, aqui:
 # - Fecha es OBLIGATORIA (siempre hay que dar --fecha o --fecha-desde/hasta)
 # - Comercio es OPCIONAL (si se omite, muestra errores de TODOS los comercios)
+# - El caso MAS COMUN es: UN DIA ESPECIFICO + UN RANGO DE HORAS ESPECIFICO
 #
 # Criterios de error (se detectan automaticamente en los logs):
 # - status code != 200
 # - code != "00" y != "RA2"
 # - mensaje contiene "Error" o "exception"
 
-# --- Ejemplo 1: buscar errores de HOY en TODOS los comercios, ultimas 3 horas ---
-# (Usar flags CLI, no este archivo)
-# python buscar_errores_transacciones.py --fecha 2026-09-25 --ultimas-3-horas
-
-# --- Ejemplo 2: buscar errores de un comercio especifico en un rango de horas ---
-# (Usar flags CLI, no este archivo)
+# --- CASO MAS COMUN: 1 dia especifico + rango de horas especifico ---
+# (Usar flags CLI)
 # python buscar_errores_transacciones.py \
 #   --fecha 2026-09-25 \
-#   --comercio 4080783 \
-#   --hora-desde 14:00 --hora-hasta 15:30
+#   --hora-desde 14:00 --hora-hasta 15:30 \
+#   --comercio 4080783
 
-# --- Ejemplo 3: buscar errores de un rango de fechas (sin acotar hora) ---
-# (Usar flags CLI, no este archivo)
+# --- Mismo dia, ultimas N horas desde ahora ---
 # python buscar_errores_transacciones.py \
-#   --fecha-desde 2026-09-24 --fecha-hasta 2026-09-25
+#   --fecha 2026-09-25 \
+#   --ultimas-N-horas 3
 
-# --- Ejemplo 4: modo local, logs ya descargados ---
-# (Usar flags CLI + --logs-dir, no este archivo)
+# --- Rango de multiples dias con rango de horas ---
+# python buscar_errores_transacciones.py \
+#   --fecha-desde 2026-09-24 --fecha-hasta 2026-09-25 \
+#   --hora-desde 09:00 --hora-hasta 14:30
+
+# --- Modo local, logs ya descargados, 1 dia + rango de horas ---
 # python buscar_errores_transacciones.py \
 #   --logs-dir "C:\ruta\a\logs" \
 #   --fecha 2026-09-25 \
+#   --hora-desde 14:00 --hora-hasta 15:30 \
 #   --comercio 4080783
 
 # --- Parametros que SI se pueden poner aqui (OPCIONALES) ---
