@@ -124,6 +124,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/notification.dispatch
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/notification.dispatcher2
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/payments
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/security
+CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/yape
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/cancel
@@ -133,6 +134,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/notification.dispatch
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/notification.dispatcher2
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/payments
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/security
+CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_444/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/confirmation
@@ -143,6 +145,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/orderinfo
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/payments
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/security
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/yape
+CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/confirmation
@@ -152,6 +155,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/notification.dispatch
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/orderinfo
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/payments
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/security
+CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_444/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/confirmation
@@ -164,6 +168,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/push
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/qr
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/security
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/yape
+CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_443/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/confirmation
@@ -176,6 +181,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/push
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/qr
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/security
 CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/yape
+CONTROLLER	/PuntoWeb_2/SVPRDMW946/WebSiteApiController_444/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/confirmation
@@ -188,6 +194,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/push
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/qr
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/security
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/yape
+CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/authorization
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/cancel
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/confirmation
@@ -200,6 +207,7 @@ CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/push
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/qr
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/security
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/yape
+CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_444/tokenization
 CONTROLLER	/PuntoWeb_2/SVPRDLW366/WebSiteApiController_443/accountvalidate
 CONTROLLER	/PuntoWeb_2/SVPRDLW947/WebSiteApiController_443/accountvalidate
 CONTROLLER	/PuntoWeb_2/SVPRDMW365/WebSiteApiController_443/accountvalidate
