@@ -46,8 +46,9 @@ Las transacciones sin ningun error en sus lineas se omiten del reporte.
 
 Igual que en la skill `busqueda-transacciones-local-sftp` (ver su SKILL.md).
 ~40 combinaciones de servidor/sitio agrupadas en 4 categorias: PUBLICO,
-CONTROLLER, BUSINESS, INTERNO. El archivo `remote_paths.txt` se reutiliza de
-esa skill; si cambia, edita ese archivo -- no el script.
+CONTROLLER, BUSINESS, INTERNO. Esta skill **no tiene copia propia**: lee directo el
+`remote_paths.txt` de esa skill (`../busqueda-transacciones-local-sftp/`); si la
+topologia cambia, edita ese archivo -- no el script.
 
 ## Modo LOCAL (`--logs-dir`, sin SFTP)
 
@@ -177,7 +178,7 @@ por consola (a menos que esten guardadas cifradas en `crypto/sftp_config.json`).
 - `--api` : nombre de carpeta API (coma-separado), ej. `authorization`,
   `cancel`. Solo modo SFTP.
 - `--ruta` : patron glob sobre ruta remota, ej. `*/SVPRDLW364/*`. Solo SFTP.
-- `--remote-paths` : archivo de topologia (default `remote_paths.txt`). SFTP.
+- `--remote-paths` : archivo de topologia (default `remote_paths.txt` de `busqueda-transacciones-local-sftp`). SFTP.
 - `--host` / `--port` / `--usuario` / `--auth` : datos de conexion opcionales.
   SFTP. Password siempre se pide oculta.
 - `--credenciales` : archivo JSON de creds guardadas (default

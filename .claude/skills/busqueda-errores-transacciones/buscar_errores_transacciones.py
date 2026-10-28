@@ -41,7 +41,8 @@ except ImportError as e:
 
 MAX_CELL_LEN = 30000
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_REMOTE_PATHS = os.path.join(SCRIPT_DIR, "remote_paths.txt")
+# Topologia unica: se comparte con la skill hermana (ahi se edita remote_paths.txt)
+DEFAULT_REMOTE_PATHS = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "busqueda-transacciones-local-sftp", "remote_paths.txt"))
 
 # --------------------------------------------------------------------------
 # 1) Utilidades de fecha/hora y busqueda de errores
