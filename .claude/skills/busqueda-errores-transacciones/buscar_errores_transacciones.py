@@ -27,7 +27,7 @@ except ImportError:
     sys.exit("Falta la libreria 'paramiko'. Instala con: pip install paramiko")
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
 SCRIPT_DIR_FOR_IMPORTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR_FOR_IMPORTS, "..", "reportes-html-izipay")))
@@ -51,6 +51,24 @@ RE_FILE_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 RE_FULL_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)\|(?:(\d+)\|)?(\w+)\|(.*)$")
 RE_MERCHANT = re.compile(r'"?[Mm]erchant[Cc]ode"?\s*:\s*"?(\d+)"?')
+# Otras formas en que aparece el comercio en los logs (Business, Transaction, mensajes de error)
+RE_MERCHANT_ALT = [
+    re.compile(r'"codComercio"\s*:\s*"?(\d{5,10})"?'),
+    re.compile(r'"merchantinfo"\s*:\s*\{[^}]*?"code"\s*:\s*"?(\d{5,10})"?', re.I),
+    re.compile(r'El c.digo \[(\d{5,10})\] no existe'),
+]
+SIN_COMERCIO = "(sin comercio identificado)"
+# "Code" de la respuesta (1-3 caracteres: 90, 94, 403, BE1...). El largo maximo 3 descarta
+# codigos de comercio (7 digitos) que tambien viajan como "Code" en MerchantInfo.
+# Exclusion SOLO para QR CONTROLLER: Code 403 "No se encontraron resultados" es informativo
+# (consulta de notificacion sin resultado), no un error. Sus 2 lineas acompanantes (homologacion
+# y "sin mensaje amigable") se excluyen solo si caen en el mismo txid y marca de tiempo.
+RE_QR_CONTROLLER_PATH = re.compile(r'WebSiteApiController_\d+/qr/')
+RE_INFO_403 = re.compile(r'"Code"\s*:\s*"403"\s*,\s*"Message"\s*:\s*"No se encontraron resultados"', re.I)
+RE_INFO_403_COMPANION = re.compile(
+    r'Homologacion\|Se inicia proceso de construcci.{1,2}n nuevo Response'   # {1,2}: la "o" llega como 1 o 2 chars segun el encoding
+    r'|No fue posible encontrar registros de mensaje amigable asociado a este codigo: 403')
+RE_RESP_CODE =re.compile(r'"code"\s*:\s*"?([A-Za-z0-9]{1,3})"?(?![A-Za-z0-9])', re.I)
 RE_STATUS_CODE = re.compile(r'"statuscode"\s*:\s*"?(\d{3})"?', re.I)
 RE_CODE = re.compile(r'"code"\s*:\s*"?(\d{2})"?(?!\d)', re.I)
 
@@ -463,6 +481,30 @@ def extract_merchant(msg):
     m = RE_MERCHANT.search(msg)
     return m.group(1) if m else None
 
+def find_merchant(line):
+    """Comercio de una linea, probando todas las formas conocidas (None si no lo trae).
+    El chequeo de subcadena evita correr las regex en la gran mayoria de lineas."""
+    if "erchant" not in line and "codComercio" not in line and "digo [" not in line:
+        return None
+    m = extract_merchant(line)
+    if m:
+        return m
+    for rx in RE_MERCHANT_ALT:
+        mm = rx.search(line)
+        if mm:
+            return mm.group(1)
+    return None
+
+def line_txid(line):
+    """TransactionId de una linea NLog (None si no hay uno valido)."""
+    parts = line.split("|", 3)
+    if len(parts) < 4:
+        return None
+    txid = parts[3].split("|", 1)[0].strip()
+    if not txid or " " in txid or len(txid) > 60:
+        return None
+    return txid
+
 def extract_error_code(msg):
     """Extrae el código de error de la línea (statuscode, code, o 'Error'/'exception')."""
     # Intenta extraer statuscode primero
@@ -499,11 +541,26 @@ def scan_for_errors(local_files, encoding, fecha=None, fecha_desde=None, fecha_h
     """
     errors_by_txid = {}
     last_timestamp_by_file = {}
+    merchant_by_txid = {}   # txid -> comercio (de CUALQUIER linea del txid, no solo las de error)
+    seen_lines = set()      # (archivo sin .gz, nro de linea): evita contar doble .log y .log.gz
+    info_events = set()     # (txid, ts) de lineas 403 informativas (QR controller)
+    pending = []            # lineas acompanantes: se descartan si su (txid, ts) es informativo
+    excluded = {"info": 0, "companion": 0}
 
     for remote_label, local_path in local_files:
         max_ts = None
+        base_label = remote_label[:-3] if remote_label.endswith(".gz") else remote_label
+        is_qr_controller = bool(RE_QR_CONTROLLER_PATH.search(remote_label.replace("\\", "/")))
         with open_local(local_path, encoding) as fh:
             for lineno, line in enumerate(fh, 1):
+                # Comercio por txid (se mira antes del filtro horario: la linea que lo trae
+                # puede ser anterior a la ventana de busqueda)
+                mer = find_merchant(line)
+                if mer:
+                    t = line_txid(line)
+                    if t and t not in merchant_by_txid:
+                        merchant_by_txid[t] = mer
+
                 # Filtro de fecha
                 m_ts = TS_RE.match(line)
                 if m_ts:
@@ -520,48 +577,128 @@ def scan_for_errors(local_files, encoding, fecha=None, fecha_desde=None, fecha_h
                     continue
 
                 # Extraer txid
-                parts = line.split("|", 3)
-                if len(parts) < 4:
+                txid = line_txid(line)
+                if not txid:
                     continue
-                txid = parts[3].split("|", 1)[0].strip()
-                if not txid or " " in txid or len(txid) > 60:
+
+                if (base_label, lineno) in seen_lines:
                     continue
+                seen_lines.add((base_label, lineno))
 
                 # Filtro de comercio (si se dio)
                 if comercio_filter:
-                    merchant = extract_merchant(line)
+                    merchant = merchant_by_txid.get(txid) or find_merchant(line)
                     if not merchant or merchant != comercio_filter:
                         continue
 
                 # Extraer código de error
                 error_code = extract_error_code(line)
+                entry = (remote_label, lineno, ts, error_code, line.rstrip("\n"))
 
-                if txid not in errors_by_txid:
-                    errors_by_txid[txid] = []
-                errors_by_txid[txid].append((remote_label, lineno, ts, error_code, line.rstrip("\n")))
+                # Exclusion informativa (solo QR controller)
+                if is_qr_controller:
+                    if RE_INFO_403.search(line):
+                        info_events.add((txid, ts))
+                        excluded["info"] += 1
+                        continue
+                    if RE_INFO_403_COMPANION.search(line):
+                        pending.append((txid, ts, entry))
+                        continue
+
+                errors_by_txid.setdefault(txid, []).append(entry)
 
         if max_ts:
             last_timestamp_by_file[remote_label] = max_ts
         print(f"  escaneado: {remote_label}")
 
-    return errors_by_txid, last_timestamp_by_file
+    for txid, ts, entry in pending:
+        if (txid, ts) in info_events:
+            excluded["companion"] += 1
+        else:
+            errors_by_txid.setdefault(txid, []).append(entry)   # misma frase en un error real: se reporta
+
+    return errors_by_txid, last_timestamp_by_file, merchant_by_txid, excluded
 
 # --------------------------------------------------------------------------
 # 5) Reporte basico (Excel + HTML)
 # --------------------------------------------------------------------------
-def generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file=None):
-    """Genera reportes en Excel y HTML con codigo de error y ultima hora de log."""
+RESUMEN_HEADERS = ["Comercio", "Transacciones con error", "Lineas de error", "Codigos de error",
+                   "Code de respuesta", "Primer error", "Ultimo error"]
+
+def extract_response_code(line):
+    """'Code' de la respuesta (aparte del statuscode) o None si la linea no lo trae."""
+    m = RE_RESP_CODE.search(line)
+    return m.group(1) if m else None
+
+def build_merchant_summary(errors_by_txid, merchant_by_txid):
+    """Agrupa los errores por comercio. Devuelve filas segun RESUMEN_HEADERS, ordenadas por
+    lineas de error (desc); los txid sin comercio resoluble van al final."""
+    groups = {}
+    for txid, items in errors_by_txid.items():
+        merchant = merchant_by_txid.get(txid)
+        if not merchant:
+            merchant = next((find_merchant(it[4]) for it in items if find_merchant(it[4])), None)
+        g = groups.setdefault(merchant or SIN_COMERCIO,
+                              {"txids": set(), "lines": 0, "codes": {}, "resp": {}, "first": None, "last": None})
+        g["txids"].add(txid)
+        for _server, _lineno, ts, code, text in items:
+            g["lines"] += 1
+            g["codes"][code] = g["codes"].get(code, 0) + 1
+            rc = extract_response_code(text)
+            if rc:
+                g["resp"][rc] = g["resp"].get(rc, 0) + 1
+            if g["first"] is None or ts < g["first"]:
+                g["first"] = ts
+            if g["last"] is None or ts > g["last"]:
+                g["last"] = ts
+    rows = []
+    for merchant, g in groups.items():
+        codes = ", ".join(f"{c} ({n})" for c, n in sorted(g["codes"].items(), key=lambda kv: -kv[1]))
+        resp = ", ".join(f"{c} ({n})" for c, n in sorted(g["resp"].items(), key=lambda kv: -kv[1])) or "-"
+        rows.append([merchant, len(g["txids"]), g["lines"], codes, resp, g["first"], g["last"]])
+    rows.sort(key=lambda r: (r[0] == SIN_COMERCIO, -r[2], r[0]))
+    return rows
+
+def exclusion_note(excluded):
+    """Texto de la exclusion informativa (None si no se excluyo nada)."""
+    if not excluded or not (excluded.get("info") or excluded.get("companion")):
+        return None
+    return (f"Excluido por informativo (solo QR CONTROLLER): Code 403 'No se encontraron resultados' "
+            f"= {excluded['info']} lineas, mas {excluded['companion']} lineas acompanantes del mismo evento.")
+
+def generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file=None, merchant_by_txid=None, excluded=None):
+    """Genera reportes en Excel y HTML: primero un resumen agrupado por comercio, luego el
+    detalle de lineas de error con codigo de error y ultima hora de log."""
     if not errors_by_txid:
         print("Sin errores encontrados.")
         return
 
     if last_timestamp_by_file is None:
         last_timestamp_by_file = {}
+    summary_rows = build_merchant_summary(errors_by_txid, merchant_by_txid or {})
 
-    # Excel basico
+    # Excel: hoja 1 = Resumen por comercio, hoja 2 = detalle
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Errores"
+    ws_sum = wb.active
+    ws_sum.title = "Resumen"
+    ws_sum.append(RESUMEN_HEADERS)
+    for row in summary_rows:
+        ws_sum.append(row)
+    sum_fill = PatternFill("solid", fgColor="E7E6E6")   # cabecera neutra, sin color de marca
+    for cell in ws_sum[1]:
+        cell.font = Font(bold=True, color="333333")
+        cell.fill = sum_fill
+        cell.alignment = Alignment(vertical="center", wrap_text=True)
+    for col, width in zip("ABCDEFG", (28, 16, 12, 55, 24, 24, 24)):
+        ws_sum.column_dimensions[col].width = width
+    ws_sum.freeze_panes = "A2"
+    note = exclusion_note(excluded)
+    if note:
+        ws_sum.append([])
+        ws_sum.append([note])
+        ws_sum.cell(row=ws_sum.max_row, column=1).font = Font(italic=True, color="666666")
+
+    ws = wb.create_sheet("Errores")
 
     headers = ["TransactionId", "Servidor", "Linea", "Timestamp", "Codigo de Error", "Ultima Hora Log", "Mensaje"]
     ws.append(headers)
@@ -596,6 +733,15 @@ def generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_
         "</style></head><body>",
         f"<h1>Errores de Transacciones - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</h1>",
         f"<p>Total de TransactionIds con error: {len(errors_by_txid)}</p>",
+        "<h2>Resumen por comercio</h2>",
+        (f"<p><em>{esc(exclusion_note(excluded))}</em></p>" if exclusion_note(excluded) else ""),
+        "<table><tr>" + "".join(f"<th>{esc(h)}</th>" for h in RESUMEN_HEADERS) + "</tr>",
+    ]
+    for row in summary_rows:
+        html_lines.append("<tr>" + "".join(f"<td>{esc(str(v))}</td>" for v in row) + "</tr>")
+    html_lines += [
+        "</table>",
+        "<h2>Detalle de lineas de error</h2>",
         "<table><tr><th>TransactionId</th><th>Servidor</th><th>Linea</th><th>Timestamp</th><th>Codigo de Error</th><th>Ultima Hora Log</th><th>Mensaje</th></tr>",
     ]
 
@@ -646,9 +792,10 @@ def main():
         if not os.path.isdir(args.logs_dir):
             sys.exit(f"No existe carpeta local: {args.logs_dir}")
         print(f"Explorando carpeta local: {args.logs_dir}")
-        local_files = [(local_server_label(f, args.logs_dir), f) for f in iter_log_files(args.logs_dir)]
+        local_files = [(local_server_label(f, args.logs_dir), f) for f in iter_log_files(args.logs_dir)
+                       if date_in_range(os.path.basename(f), args.fecha, args.fecha_desde, args.fecha_hasta)]
         if not local_files:
-            sys.exit(f"No se encontraron logs en {args.logs_dir}")
+            sys.exit(f"No se encontraron logs en {args.logs_dir} para la fecha dada")
     else:
         # Modo SFTP
         print("Conectando a SFTP...")
@@ -694,10 +841,13 @@ def main():
         client.close()
 
     print("\n=== ESCANEANDO LOGS EN BUSCA DE ERRORES ===")
-    errors_by_txid, last_timestamp_by_file = scan_for_errors(local_files, encoding,
+    errors_by_txid, last_timestamp_by_file, merchant_by_txid, excluded = scan_for_errors(local_files, encoding,
                                      args.fecha, args.fecha_desde, args.fecha_hasta,
                                      args.hora_desde, args.hora_hasta, args.comercio)
 
+    note = exclusion_note(excluded)
+    if note:
+        print(f"\n[INFO] {note}")
     if not errors_by_txid:
         print("\nSin errores encontrados en los logs analiz ados.")
         return
@@ -712,7 +862,7 @@ def main():
     output_html = resolve_report_path(args.output_html, "Errores_Transacciones.html")
 
     print("\n=== GENERANDO REPORTES ===")
-    generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file)
+    generate_report(errors_by_txid, output_xlsx, output_html, last_timestamp_by_file, merchant_by_txid, excluded)
 
     print("\n[OK] Listo!")
 

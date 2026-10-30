@@ -13,6 +13,24 @@ description: >-
 
 # Busqueda de errores en transacciones (SFTP o logs ya locales)
 
+## FLUJO POR DEFECTO (desde 2026-10-29): primero descargar, buscar solo si lo piden
+
+El usuario tambien revisa los logs a mano, asi que **descarga y busqueda son
+pasos separados** (igual que en `busqueda-transacciones-local-sftp`):
+
+1. **Descargar el dia** con el script de esa skill, que no busca nada:
+   `python "../busqueda-transacciones-local-sftp/descargar_logs_sftp.py" --categoria BUSINESS --api qr`
+   (default: hoy; `--fecha`/`--fecha-desde`/`--fecha-hasta` para otro dia).
+   Los logs quedan en `D:\GIT_IZIPAY\_new_repo\SK_ServerSearchData\LOG_PW2\PuntoWeb_2\<SERVIDOR>\<Sitio>_<puerto>\<api>\`.
+   Volver a correrlo refresca el log del dia (sigue creciendo).
+2. **Parar y avisar** donde quedaron los logs. **No buscar por iniciativa propia.**
+3. **Buscar solo cuando el usuario lo pida**, con
+   `--logs-dir "D:\GIT_IZIPAY\_new_repo\SK_ServerSearchData\LOG_PW2"` + `--fecha` + horas.
+   Si no hay descarga del dia, descargar primero.
+
+El modo SFTP directo de esta skill (sin `--logs-dir`) sigue existiendo pero ya
+no es el camino por defecto.
+
 Skill **independiente** para investigar transacciones que fallaron, cruzando
 logs NLog de la plataforma ecommerce, con **dos modos de origen de datos** que
 comparten el mismo motor de busqueda, clasificacion y reporte:
@@ -41,6 +59,25 @@ Una linea de log es un **error** si:
 3. Mensaje contiene las palabras `Error` o `exception` (case-insensitive)
 
 Las transacciones sin ningun error en sus lineas se omiten del reporte.
+
+## Reporte
+
+- **Excel:** hoja 1 `Resumen` = errores agrupados por comercio (transacciones con
+  error, lineas de error, codigos de error con su conteo, primer y ultimo error);
+  hoja 2 `Errores` = detalle linea por linea. El HTML trae las mismas dos tablas.
+- El comercio de cada txid se toma de cualquier linea del txid (`merchantCode`,
+  `codComercio`, `MerchantInfo.Code` o el mensaje "El codigo [X] no existe"); los
+  que no se pueden resolver caen en `(sin comercio identificado)`.
+- **Exclusion informativa (solo QR CONTROLLER, carpeta `WebSiteApiController_*/qr/`):**
+  `"Code":"403","Message":"No se encontraron resultados"` no se considera error (es
+  una consulta de notificacion sin resultado). Tambien se excluyen sus 2 lineas
+  acompanantes (homologacion "nuevo Response" y "sin mensaje amigable ... codigo 403")
+  solo si caen en el mismo txid y marca de tiempo; la misma frase en otro evento se
+  sigue reportando. En BUSINESS y demas APIs no se excluye nada. El reporte indica
+  cuantas lineas se excluyeron (nota bajo el `Resumen` y en la consola).
+- Las lineas repetidas entre `.log` y `.log.gz` se cuentan una sola vez, y en modo
+  `--logs-dir` los archivos se filtran por la fecha del nombre (la carpeta puede
+  tener varios dias).
 
 ## Topologia remota conocida (`remote_paths.txt`)
 

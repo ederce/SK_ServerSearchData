@@ -35,6 +35,39 @@ description: >-
 
 # Busqueda de transacciones (SFTP o logs ya locales)
 
+## FLUJO POR DEFECTO (desde 2026-10-29): primero descargar, buscar solo si lo piden
+
+El usuario tambien busca a mano en los logs, por eso **la descarga y la
+busqueda son pasos separados**:
+
+1. **Descargar el dia** con `descargar_logs_sftp.py` (no busca nada). Baja los
+   logs a `D:\GIT_IZIPAY\_new_repo\SK_ServerSearchData\LOG_PW2\PuntoWeb_2\<SERVIDOR>\<Sitio>_<puerto>\<api>\`
+   (espejo de la topologia remota: servidor / sitio = categoria + puerto / API):
+
+   ```bash
+   python "<ruta-skill>/descargar_logs_sftp.py" --categoria BUSINESS --api qr          # hoy
+   python "<ruta-skill>/descargar_logs_sftp.py" --fecha 2026-10-28 --categoria CONTROLLER
+   python "<ruta-skill>/descargar_logs_sftp.py" --ruta "*/SVPRDLW366/*"                # un servidor
+   ```
+
+   Flags: `--destino` (default `<raiz del proyecto>\LOG_PW2`), `--fecha` /
+   `--fecha-desde` / `--fecha-hasta` (default: hoy), `--categoria`, `--api`,
+   `--ruta`, `--paralelo` (default 3) y los de credenciales. Descarga a
+   `.part`, reanuda, reintenta y reconecta solo ante los cortes intermitentes;
+   un archivo ya al dia se omite, asi que **volver a correrlo refresca el log
+   del dia, que sigue creciendo** (hacerlo justo antes de buscar si la
+   transaccion es reciente).
+2. **Parar y avisar** donde quedaron los logs. **No buscar por iniciativa
+   propia.**
+3. **Buscar solo cuando el usuario lo pida**, sobre lo ya descargado, con
+   `--logs-dir "D:\GIT_IZIPAY\_new_repo\SK_ServerSearchData\LOG_PW2"` (+ `--fecha`, `--hora-*`,
+   y el resto de criterios). Si pide buscar y no hay descarga del dia, descargar
+   primero.
+
+El modo SFTP directo de este script (sin `--logs-dir`) sigue existiendo pero
+**ya no es el camino por defecto**. Limitacion conocida: en `--logs-dir` el
+reporte automatico agrupa mal en algunas APIs (ver memoria `feedback_capture_sin_perfil_hitos`).
+
 Skill **independiente** para investigar transacciones cruzando logs NLog de
 la plataforma ecommerce, con **dos modos de origen de datos** que comparten
 el mismo motor de busqueda, clasificacion y reporte:
