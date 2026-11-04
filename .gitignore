@@ -1,2 +1,6 @@
 # Logs reales descargados del SFTP (evidencia de transacciones/comercios): nunca al repo
 LOG_PW2/
+
+# Bytecode de Python
+__pycache__/
+*.pyc
